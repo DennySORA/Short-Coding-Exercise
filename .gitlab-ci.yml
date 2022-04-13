@@ -81,7 +81,7 @@ install:
     paths:
       - short/vendor
 
-.go_lint:
+go_lint:
   image: golangci/golangci-lint:v1.39.0
   stage: test
   cache:
@@ -91,7 +91,7 @@ install:
     - cd short
     - golangci-lint run --timeout 5m ./...
 
-.go_test:
+go_test:
   image: golang:1.17
   stage: test
   cache:
