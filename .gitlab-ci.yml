@@ -1,0 +1,168 @@
+stages:
+  - dependency
+  - test
+  - build
+  - release
+
+################################
+## docker services references ##
+################################
+
+.docker_services:
+  image: amazon/aws-cli:latest
+  stage: build
+  services:
+    - docker:stable-dind
+  before_script:
+    - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+    - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+    - amazon-linux-extras install docker
+    - aws configure list
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $DOCKER_REGISTRY
+    - if [ -n "$CI_COMMIT_TAG" ]; then
+      IMAGE_TAG=$CI_COMMIT_TAG;
+      IMAGE_VERSION=$CI_COMMIT_TAG;
+      else
+      IMAGE_TAG="$PACKAGE_TAG";
+      IMAGE_VERSION=$CI_COMMIT_SHORT_SHA;
+      fi
+    - export DOCKER_TAG=${DOCKER_IMAGE}:${IMAGE_TAG}
+    - export DOCKER_HASH_TAG=${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA};
+  script:
+    - docker build -t ${DOCKER_TAG} --build-arg OUTSIDE_VERSION=${IMAGE_VERSION} --build-arg CI_JOB_TOKEN=${CI_JOB_TOKEN} .
+    - docker tag ${DOCKER_TAG} ${DOCKER_HASH_TAG}
+    - docker push ${DOCKER_HASH_TAG}
+    - docker push ${DOCKER_TAG}
+  tags: []
+  interruptible: true
+  allow_failure: true
+
+##############################
+## docker config references ##
+##############################
+
+.docker_env_common:
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_DRIVER: "overlay2"
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_BUILDKIT: "1"
+
+.docker_repository: &docker_repository
+  extends: .docker_env_common
+  DOCKER_REGISTRY: ""
+  DOCKER_REPOSITORY: ""
+  DOCKER_IMAGE: "$DOCKER_REGISTRY/$DOCKER_REPOSITORY"
+
+#######################
+##   test and lint   ##
+#######################
+
+.cache: &ref_cache
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - $GOPATH/pkg/mod
+
+install:
+  stage: dependency
+  image: golang:1.17
+  cache: *ref_cache
+  script:
+    - cd short
+    - go mod download
+    - go mod vendor
+  artifacts:
+    expire_in: 10 mins
+    paths:
+      - short/vendor
+
+go_lint:
+  image: golangci/golangci-lint:v1.39.0
+  stage: test
+  cache:
+    <<: *ref_cache
+    policy: pull
+  script:
+    - cd short
+    - golangci-lint run --timeout 5m ./...
+
+go_test:
+  image: golang:1.17
+  stage: test
+  cache:
+    <<: *ref_cache
+    policy: pull
+  script:
+    - cd short
+    - go test -race -v -p=1 -count=1 -coverprofile=cover.out ./...
+    - go tool cover -func cover.out | grep 'total'
+
+#######################
+## docker repository ##
+#######################
+
+docker_test_package:
+  variables:
+    <<: *docker_repository
+    PACKAGE_TAG: "test"
+  extends:
+    - .docker_services
+  only:
+    - /^test\/.*/
+    - /^feature\/.*/
+  when: manual
+
+docker_develop_package:
+  variables:
+    <<: *docker_repository
+    PACKAGE_TAG: "develop"
+  extends:
+    - .docker_services
+  only:
+    - /^feature\/.*/
+    - develop
+  when: manual
+
+docker_latest_package:
+  variables:
+    <<: *docker_repository
+    PACKAGE_TAG: "latest"
+  extends:
+    - .docker_services
+  only:
+    - develop
+    - master
+    - tag
+  when: manual
+
+docker_prod_package:
+  variables:
+    <<: *docker_repository
+  extends:
+    - .docker_services
+  only:
+    - tag
+
+semantic_release:
+  image: node:16.9-buster-slim
+  stage: release
+  variables:
+    GL_TOKEN: "${GL_TOKEN}"
+    SEMANTIC_RELEASE_PACKAGE: "${CI_PROJECT_NAME}"
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends git-core
+    - apt-get install apt-transport-https ca-certificates -y
+    - update-ca-certificates
+    - npm i -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/gitlab@6.0.0 @semantic-release/git @semantic-release/release-notes-generator conventional-changelog-conventionalcommits
+  script:
+    - semantic-release
+  only:
+    - main
+    - master
+  except:
+    refs:
+      - tags
+    variables:
+      - $CI_COMMIT_TITLE =~ /^RELEASE:.+$/
+  tags: []
+  interruptible: false
+  allow_failure: false

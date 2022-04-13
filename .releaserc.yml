@@ -1,0 +1,38 @@
+branches: ['main', 'master']
+ci: true
+debug: true
+plugins:
+  - path: '@semantic-release/commit-analyzer'
+  - path: '@semantic-release/release-notes-generator'
+    preset: 'conventionalcommits'
+    presetConfig:
+      types:
+        - type: feat
+          section: New Features
+          hidden: false
+        - type: fix
+          section: Bug Fixes
+          hidden: false
+        - type: docs
+          section: Docs
+          hidden: false
+        - type: perf
+          section: Performance
+          hidden: false
+        - type: refactor
+          section: Refactor
+          hidden: false
+        - type: chore
+          section: Chore
+          hidden: false
+        - type: style
+          section: Chore
+          hidden: false
+    writerOpts:
+      groupBy: 'type'
+      commitGroupsSort: 'title'
+      commitsSort: 'header'
+  - path: '@semantic-release/changelog'
+  - path: '@semantic-release/git'
+    message: 'RELEASE: v${nextRelease.version}'
+    assets: ['CHANGELOG.md']
