@@ -1,4 +1,4 @@
-branches: ['main']
+branches: ['main', 'master']
 ci: true
 debug: true
 plugins:
@@ -28,9 +28,6 @@ plugins:
         - type: style
           section: Chore
           hidden: false
-        - type: \[what\]
-          section: New Features
-          hidden: false
     writerOpts:
       groupBy: 'type'
       commitGroupsSort: 'title'
@@ -39,7 +36,3 @@ plugins:
   - path: '@semantic-release/git'
     message: 'RELEASE: v${nextRelease.version}'
     assets: ['CHANGELOG.md']
-  - path: semantic-release-slack-bot
-    notifyOnSuccess: true
-    notifyOnFail: true
-    markdownReleaseNotes: true
