@@ -74,6 +74,14 @@ Or
 - CI/CD with gitlab.
 - Dockerize.
 
+## Benchmark
+
+### Not Cache
+![](https://i.imgur.com/XHne6NW.png)
+
+### Has Cache
+![](https://i.imgur.com/yy20AQy.png)
+
 ## TOOD
 
 - Add Singleflight.
