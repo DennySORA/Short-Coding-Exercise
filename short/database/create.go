@@ -59,14 +59,14 @@ func createSQLTable(db *sql.DB) error {
 		logs.Error.Panic(err)
 	}
 
-	_, err = tx.Exec(string(data))
-	if err != nil {
-		tx.Rollback()
+	if _, err = tx.Exec(string(data)); err != nil {
 		logs.Error.Panic(err)
+		if err := tx.Rollback(); err != nil {
+			logs.Error.Panic(err)
+		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err = tx.Commit(); err != nil {
 		logs.Error.Panic(err)
 	}
 

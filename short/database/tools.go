@@ -15,7 +15,9 @@ func TxErrorCheckError(name string, err error, tx *sql.Tx) bool {
 		} else {
 			logs.Warning.Println(name, err)
 		}
-		tx.Rollback()
+		if err := tx.Rollback(); err != nil {
+			logs.Error.Println(err)
+		}
 		return true
 	}
 	return false

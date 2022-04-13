@@ -48,7 +48,10 @@ func ServerStart() {
 	}
 
 	// Set http2.
-	http2.ConfigureServer(ser, &http2.Server{})
+	err := http2.ConfigureServer(ser, &http2.Server{})
+	if err != nil {
+		logs.Error.Println(err)
+	}
 
 	// Start listen.
 	listen(ser)
